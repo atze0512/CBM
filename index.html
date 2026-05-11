@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CBM 계산기 — 화물 부피 계산</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F5F3EE;
+    --surface: #FFFFFF;
+    --surface2: #ECEAE4;
+    --border: rgba(0,0,0,0.10);
+    --border-strong: rgba(0,0,0,0.18);
+    --text: #1A1916;
+    --text-2: #5C5A55;
+    --text-3: #9B9890;
+    --accent: #1A1916;
+    --accent-inv: #FFFFFF;
+    --warn: #BA7517;
+    --danger: #A32D2D;
+    --success: #3B6D11;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Noto Sans KR', sans-serif;
+    --radius: 10px;
+    --radius-lg: 16px;
+  }
+
+  html { background: var(--bg); }
+  body {
+    font-family: var(--sans);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem 1rem 4rem;
+    background: var(--bg);
+  }
+
+  .page {
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  /* — Header — */
+  .page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
+    animation: fadeUp 0.5s ease both;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-icon {
+    width: 38px; height: 38px;
+    background: var(--accent);
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-icon svg { width: 20px; height: 20px; stroke: #fff; fill: none; }
+  .logo-text h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+  .logo-text p { font-size: 12px; color: var(--text-3); margin-top: 1px; }
+  .unit-switcher {
+    display: flex;
+    gap: 4px;
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 3px;
+  }
+  .unit-btn {
+    padding: 5px 12px;
+    font-size: 12px;
+    font-family: var(--mono);
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+  .unit-btn.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  /* — Section card — */
+  .card {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    animation: fadeUp 0.5s ease both;
+  }
+  .card:nth-child(2) { animation-delay: 0.05s; }
+  .card:nth-child(3) { animation-delay: 0.10s; }
+  .card:nth-child(4) { animation-delay: 0.15s; }
+  .card:nth-child(5) { animation-delay: 0.20s; }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .card-title svg { width: 15px; height: 15px; stroke: var(--text-2); fill: none; flex-shrink: 0; }
+
+  /* — Table header — */
+  .table-header {
+    display: grid;
+    grid-template-columns: minmax(0,2fr) repeat(3, minmax(0,1fr)) minmax(0,0.65fr) 32px;
+    gap: 8px;
+    padding: 0 0 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .col-lbl {
+    font-size: 10px;
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+  }
+
+  /* — Item rows — */
+  .items-list { display: flex; flex-direction: column; gap: 6px; }
+
+  .item-row {
+    display: grid;
+    grid-template-columns: minmax(0,2fr) repeat(3, minmax(0,1fr)) minmax(0,0.65fr) 32px;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .item-row input {
+    width: 100%;
+    height: 36px;
+    padding: 0 10px;
+    font-size: 14px;
+    font-family: var(--sans);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .item-row input:focus {
+    border-color: var(--border-strong);
+    background: var(--surface);
+  }
+  .item-row input::placeholder { color: var(--text-3); }
+  .item-row input[type=number] { font-family: var(--mono); }
+
+  .cbm-cell {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-2);
+    text-align: right;
+    padding-right: 2px;
+    white-space: nowrap;
+  }
+
+  .del-btn {
+    width: 32px; height: 32px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-3);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .del-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; }
+  .del-btn:hover { background: #FEF2F2; color: var(--danger); border-color: #FECACA; }
+
+  .empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-3);
+    font-size: 14px;
+  }
+
+  .add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-family: var(--sans);
+    border: 1px dashed var(--border-strong);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .add-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; }
+  .add-btn:hover { background: var(--bg); color: var(--text); border-style: solid; }
+
+  /* — Summary metrics — */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .metric {
+    background: var(--bg);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .metric-label {
+    font-size: 11px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+  .metric-value {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.1;
+  }
+  .metric-unit {
+    font-size: 12px;
+    color: var(--text-3);
+    font-weight: 400;
+  }
+
+  /* — Container bar — */
+  .container-section { margin-top: 1.25rem; }
+  .container-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 12px;
+    color: var(--text-2);
+    margin-bottom: 8px;
+  }
+  .pct-val { font-family: var(--mono); font-weight: 500; font-size: 13px; }
+  .bar-track {
+    height: 8px;
+    background: var(--bg);
+    border-radius: 99px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 99px;
+    transition: width 0.35s cubic-bezier(0.4,0,0.2,1);
+  }
+  .bar-fill.warn { background: var(--warn); }
+  .bar-fill.over { background: var(--danger); }
+
+  .container-tabs {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+  }
+  .c-tab {
+    padding: 5px 12px;
+    font-size: 12px;
+    font-family: var(--mono);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .c-tab.active {
+    background: var(--accent);
+    color: var(--accent-inv);
+    border-color: var(--accent);
+  }
+
+  /* — Freight section — */
+  .freight-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12px; color: var(--text-2); }
+  .input-group { display: flex; align-items: center; gap: 0; }
+  .input-group input {
+    flex: 1;
+    height: 38px;
+    padding: 0 12px;
+    font-size: 14px;
+    font-family: var(--mono);
+    border: 1px solid var(--border);
+    border-right: none;
+    border-radius: 8px 0 0 8px;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .input-group input:focus { border-color: var(--border-strong); background: var(--surface); }
+  .input-group input::placeholder { color: var(--text-3); }
+  .input-suffix {
+    height: 38px;
+    padding: 0 10px;
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--text-3);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 0 8px 8px 0;
+    display: flex; align-items: center;
+  }
+
+  .freight-results {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .result-card {
+    background: var(--bg);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .result-card.highlight {
+    background: var(--accent);
+    color: var(--accent-inv);
+  }
+  .result-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); margin-bottom: 6px; }
+  .result-card.highlight .result-label { color: rgba(255,255,255,0.55); }
+  .result-value { font-family: var(--mono); font-size: 20px; font-weight: 500; }
+  .result-card.highlight .result-value { color: #fff; }
+
+  .freight-note {
+    font-size: 11px;
+    color: var(--text-3);
+    margin-top: 10px;
+    line-height: 1.6;
+  }
+
+  /* — Actions — */
+  .actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+  }
+  .btn-secondary {
+    padding: 9px 18px;
+    font-size: 13px;
+    font-family: var(--sans);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-secondary svg { width: 14px; height: 14px; stroke: currentColor; fill: none; }
+  .btn-secondary:hover { background: var(--bg); color: var(--text); }
+  .btn-primary {
+    padding: 9px 18px;
+    font-size: 13px;
+    font-family: var(--sans);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--accent-inv);
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex; align-items: center; gap: 6px;
+    font-weight: 500;
+  }
+  .btn-primary svg { width: 14px; height: 14px; stroke: currentColor; fill: none; }
+  .btn-primary:hover { opacity: 0.85; }
+
+  /* — Toast — */
+  .toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    background: var(--accent);
+    color: var(--accent-inv);
+    font-size: 13px;
+    padding: 10px 18px;
+    border-radius: 8px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.25s;
+    pointer-events: none;
+    z-index: 999;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* — Animations — */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* — Mobile — */
+  @media (max-width: 600px) {
+    .table-header { display: none; }
+    .item-row {
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      background: var(--bg);
+      border-radius: var(--radius);
+      padding: 10px;
+      position: relative;
+    }
+    .item-row .name-input { grid-column: 1 / -1; }
+    .item-row .cbm-cell { font-size: 11px; }
+    .item-row .del-btn { position: absolute; top: 8px; right: 8px; }
+    .metrics { grid-template-columns: 1fr 1fr; }
+    .metrics .metric:last-child { grid-column: 1 / -1; }
+    .freight-inputs { grid-template-columns: 1fr; }
+    .freight-results { grid-template-columns: 1fr; }
+    .page-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" stroke-width="2">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+          <line x1="12" y1="22.08" x2="12" y2="12"/>
+        </svg>
+      </div>
+      <div class="logo-text">
+        <h1>CBM 계산기</h1>
+        <p>화물 부피 & 운임 견적 도구</p>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+      <span style="font-size:11px;color:var(--text-3);font-family:var(--mono)">단위 선택</span>
+      <div class="unit-switcher">
+        <button class="unit-btn active" onclick="setUnit('cm')" id="btn-cm">cm</button>
+        <button class="unit-btn" onclick="setUnit('mm')" id="btn-mm">mm</button>
+        <button class="unit-btn" onclick="setUnit('inch')" id="btn-inch">inch</button>
+        <button class="unit-btn" onclick="setUnit('m')" id="btn-m">m</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Items Card -->
+  <div class="card">
+    <div class="card-title">
+      <svg viewBox="0 0 24 24" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+      품목 목록
+    </div>
+    <div class="table-header">
+      <div class="col-lbl">품명</div>
+      <div class="col-lbl">가로 L</div>
+      <div class="col-lbl">세로 W</div>
+      <div class="col-lbl">높이 H</div>
+      <div class="col-lbl">수량</div>
+      <div></div>
+    </div>
+    <div class="items-list" id="items-list">
+      <div class="empty-state">품목을 추가하여 CBM을 계산하세요</div>
+    </div>
+    <button class="add-btn" onclick="addItem()">
+      <svg viewBox="0 0 24 24" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      품목 추가
+    </button>
+  </div>
+
+  <!-- Summary Card -->
+  <div class="card">
+    <div class="card-title">
+      <svg viewBox="0 0 24 24" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      계산 결과
+    </div>
+    <div class="metrics">
+      <div class="metric">
+        <div class="metric-label">총 CBM</div>
+        <div class="metric-value" id="total-cbm">0.000 <span class="metric-unit">m³</span></div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">총 박스 수</div>
+        <div class="metric-value" id="total-boxes">0 <span class="metric-unit">박스</span></div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">박스당 평균</div>
+        <div class="metric-value" id="avg-cbm">— <span class="metric-unit">m³</span></div>
+      </div>
+    </div>
+
+    <div class="container-section">
+      <div class="container-label">
+        <span>컨테이너 적재율 — <span id="container-name-label">20ft (33.2 m³)</span></span>
+        <span class="pct-val" id="bar-pct">0%</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" id="bar-fill" style="width:0%"></div>
+      </div>
+      <div class="container-tabs">
+        <button class="c-tab active" onclick="setContainer('20ft',33.2,'20ft (33.2 m³)')" id="ctab-20ft">20ft — 33.2 m³</button>
+        <button class="c-tab" onclick="setContainer('40ft',67.7,'40ft (67.7 m³)')" id="ctab-40ft">40ft — 67.7 m³</button>
+        <button class="c-tab" onclick="setContainer('40hc',76.3,'40ft HC (76.3 m³)')" id="ctab-40hc">40ft HC — 76.3 m³</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Freight Card -->
+  <div class="card">
+    <div class="card-title">
+      <svg viewBox="0 0 24 24" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      운임 견적 <span style="font-size:10px;font-weight:400;color:var(--text-3);margin-left:4px;">선택 사항</span>
+    </div>
+    <div class="freight-inputs">
+      <div class="field">
+        <label>CBM당 운임</label>
+        <div class="input-group">
+          <input type="number" id="rate-per-cbm" placeholder="예: 50" min="0" oninput="calcFreight()">
+          <span class="input-suffix">USD/m³</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>최소 운임 (Min B/L)</label>
+        <div class="input-group">
+          <input type="number" id="min-freight" placeholder="예: 100" min="0" oninput="calcFreight()">
+          <span class="input-suffix">USD</span>
+        </div>
+      </div>
+    </div>
+    <div class="freight-results" id="freight-results" style="display:none;">
+      <div class="result-card">
+        <div class="result-label">계산 운임</div>
+        <div class="result-value" id="calc-freight">—</div>
+      </div>
+      <div class="result-card highlight">
+        <div class="result-label">적용 운임</div>
+        <div class="result-value" id="applied-freight">—</div>
+      </div>
+    </div>
+    <p class="freight-note">* 실제 운임은 선사·항공사 및 항로에 따라 다를 수 있습니다. 이 계산기는 참고용입니다.</p>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button class="btn-secondary" onclick="resetAll()">
+      <svg viewBox="0 0 24 24" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+      초기화
+    </button>
+    <button class="btn-secondary" onclick="copyReport()">
+      <svg viewBox="0 0 24 24" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      결과 복사
+    </button>
+    <button class="btn-primary" onclick="printPage()">
+      <svg viewBox="0 0 24 24" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      인쇄 / PDF
+    </button>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  let unit = 'cm';
+  let containerCBM = 33.2;
+  let containerKey = '20ft';
+  let items = [];
+  let idCounter = 0;
+
+  function toM(val) {
+    const n = parseFloat(val) || 0;
+    if (unit === 'cm') return n / 100;
+    if (unit === 'mm') return n / 1000;
+    if (unit === 'inch') return n * 0.0254;
+    return n;
+  }
+
+  function setUnit(u) {
+    unit = u;
+    ['cm','mm','inch','m'].forEach(x => {
+      document.getElementById('btn-'+x).classList.toggle('active', x === u);
+    });
+    updateSummary();
+  }
+
+  function setContainer(key, cbm, label) {
+    containerKey = key; containerCBM = cbm;
+    ['20ft','40ft','40hc'].forEach(x => {
+      document.getElementById('ctab-'+x).classList.toggle('active', x === key);
+    });
+    document.getElementById('container-name-label').textContent = label;
+    updateSummary();
+  }
+
+  function itemCBM(item) {
+    return toM(item.l) * toM(item.w) * toM(item.h) * (parseFloat(item.qty) || 0);
+  }
+
+  function addItem() {
+    items.push({ id: idCounter++, name: '', l: '', w: '', h: '', qty: '' });
+    render();
+  }
+
+  function removeItem(id) {
+    items = items.filter(i => i.id !== id);
+    render(); updateSummary();
+  }
+
+  function updateField(id, field, val) {
+    const item = items.find(i => i.id === id);
+    if (item) { item[field] = val; updateSummary(); }
+  }
+
+  function updateSummary() {
+    const totalCBM = items.reduce((s, i) => s + itemCBM(i), 0);
+    const totalBoxes = items.reduce((s, i) => s + (parseFloat(i.qty) || 0), 0);
+    document.getElementById('total-cbm').innerHTML = totalCBM.toFixed(3) + ' <span class="metric-unit">m³</span>';
+    document.getElementById('total-boxes').innerHTML = totalBoxes.toFixed(0) + ' <span class="metric-unit">박스</span>';
+    document.getElementById('avg-cbm').innerHTML =
+      (totalBoxes > 0 ? (totalCBM / totalBoxes).toFixed(4) : '—') + ' <span class="metric-unit">m³</span>';
+
+    const rawPct = containerCBM > 0 ? (totalCBM / containerCBM) * 100 : 0;
+    const pct = Math.min(rawPct, 100);
+    document.getElementById('bar-pct').textContent = rawPct.toFixed(1) + '%';
+    const fill = document.getElementById('bar-fill');
+    fill.style.width = pct.toFixed(2) + '%';
+    fill.className = 'bar-fill' + (rawPct >= 100 ? ' over' : rawPct >= 80 ? ' warn' : '');
+
+    document.querySelectorAll('.cbm-cell[data-id]').forEach(el => {
+      const id = parseInt(el.dataset.id);
+      const item = items.find(i => i.id === id);
+      if (item) el.textContent = itemCBM(item).toFixed(4) + ' m³';
+    });
+
+    calcFreight();
+  }
+
+  function calcFreight() {
+    const totalCBM = items.reduce((s, i) => s + itemCBM(i), 0);
+    const rate = parseFloat(document.getElementById('rate-per-cbm').value) || 0;
+    const minF = parseFloat(document.getElementById('min-freight').value) || 0;
+    const fr = document.getElementById('freight-results');
+    if (rate > 0) {
+      fr.style.display = 'grid';
+      const calc = totalCBM * rate;
+      const applied = Math.max(calc, minF);
+      document.getElementById('calc-freight').textContent = 'USD ' + calc.toFixed(2);
+      document.getElementById('applied-freight').textContent = 'USD ' + applied.toFixed(2);
+    } else {
+      fr.style.display = 'none';
+    }
+  }
+
+  function render() {
+    const list = document.getElementById('items-list');
+    list.innerHTML = '';
+    if (items.length === 0) {
+      list.innerHTML = '<div class="empty-state">품목을 추가하여 CBM을 계산하세요</div>';
+      return;
+    }
+    items.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      row.innerHTML = `
+        <input class="name-input" type="text" placeholder="품명 (예: 냉장고)" value="${escHtml(item.name)}"
+          oninput="updateField(${item.id},'name',this.value)">
+        <input type="number" placeholder="0" value="${escHtml(item.l)}" min="0" step="any"
+          oninput="updateField(${item.id},'l',this.value)">
+        <input type="number" placeholder="0" value="${escHtml(item.w)}" min="0" step="any"
+          oninput="updateField(${item.id},'w',this.value)">
+        <input type="number" placeholder="0" value="${escHtml(item.h)}" min="0" step="any"
+          oninput="updateField(${item.id},'h',this.value)">
+        <input type="number" placeholder="1" value="${escHtml(item.qty)}" min="1" step="1"
+          oninput="updateField(${item.id},'qty',this.value)">
+        <button class="del-btn" onclick="removeItem(${item.id})" title="삭제">
+          <svg viewBox="0 0 24 24" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      `;
+      list.appendChild(row);
+
+      // CBM display — insert before del-btn
+      const cbmCell = document.createElement('div');
+      cbmCell.className = 'cbm-cell';
+      cbmCell.dataset.id = item.id;
+      cbmCell.textContent = itemCBM(item).toFixed(4) + ' m³';
+      // In mobile grid, skip; on desktop insert after qty input (5th child)
+      const inputs = row.querySelectorAll('input');
+      row.insertBefore(cbmCell, inputs[inputs.length - 1].nextSibling);
+      updateSummary();
+    });
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function resetAll() {
+    items = [];
+    idCounter = 0;
+    document.getElementById('rate-per-cbm').value = '';
+    document.getElementById('min-freight').value = '';
+    render();
+    updateSummary();
+    showToast('초기화되었습니다');
+  }
+
+  function copyReport() {
+    const totalCBM = items.reduce((s, i) => s + itemCBM(i), 0);
+    const totalBoxes = items.reduce((s, i) => s + (parseFloat(i.qty) || 0), 0);
+    const rate = parseFloat(document.getElementById('rate-per-cbm').value) || 0;
+    const minF = parseFloat(document.getElementById('min-freight').value) || 0;
+
+    let txt = '=== CBM 계산 결과 ===\n\n';
+    if (items.length === 0) { txt += '품목 없음\n'; }
+    else {
+      txt += '[ 품목 목록 ]\n';
+      items.forEach((item, idx) => {
+        txt += `${idx+1}. ${item.name || '(미입력)'} — ${item.l||0}×${item.w||0}×${item.h||0} ${unit}, ${item.qty||0}박스 → ${itemCBM(item).toFixed(4)} m³\n`;
+      });
+    }
+    txt += `\n총 CBM: ${totalCBM.toFixed(3)} m³\n`;
+    txt += `총 박스: ${totalBoxes.toFixed(0)} 박스\n`;
+    if (totalBoxes > 0) txt += `박스당 평균: ${(totalCBM/totalBoxes).toFixed(4)} m³\n`;
+    if (rate > 0) {
+      const calc = totalCBM * rate;
+      const applied = Math.max(calc, minF);
+      txt += `\n[ 운임 견적 ]\n계산 운임: USD ${calc.toFixed(2)}\n적용 운임: USD ${applied.toFixed(2)}\n`;
+    }
+    txt += `\n생성: ${new Date().toLocaleString('ko-KR')}`;
+
+    navigator.clipboard.writeText(txt).then(() => showToast('클립보드에 복사되었습니다'))
+      .catch(() => showToast('복사 실패 — 브라우저 권한을 확인하세요'));
+  }
+
+  function printPage() { window.print(); }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  // Init with one empty row
+  addItem();
+</script>
+</body>
+</html>
